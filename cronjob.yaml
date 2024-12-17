@@ -1,0 +1,102 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: zammad-backup
+  namespace: zammad
+spec:
+  schedule: 0 3 * * *
+  concurrencyPolicy: Allow
+  suspend: true
+  jobTemplate:
+    metadata:
+      creationTimestamp: null
+    spec:
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          volumes:
+            - name: zammad-backup-storage
+              persistentVolumeClaim:
+                claimName: zammad-backup-pvc
+            - name: zammad-storage
+              persistentVolumeClaim:
+                claimName: zammad-external-data
+            - name: zammad-backup-config
+              configMap:
+                name: zammad-backup-config
+                defaultMode: 420
+            - name: zammad-database-config
+              configMap:
+                name: zammad-backup-config
+                defaultMode: 420
+            - name: zammad-database-functions
+              configMap:
+                name: zammad-backup-config
+                defaultMode: 420
+            - name: zammad-external-tmp
+              emptyDir:
+                sizeLimit: 100Mi
+          containers:
+            - name: zammad-backup
+              image: zammad/zammad:latest
+              command:
+                - /bin/bash
+                - '-c'
+                - /opt/zammad/contrib/backup/zammad_backup.sh
+              env:
+                - name: ZAMMAD_BACKUP_PATH
+                  value: /var/tmp/zammad_backup
+                - name: REDIS_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: zammad-external-redis-pass
+                      key: redis-password
+                - name: MEMCACHE_SERVERS
+                  value: zammad-external-memcached:11211
+                - name: RAILS_TRUSTED_PROXIES
+                  value: '[''127.0.0.1'', ''::1'']'
+                - name: REDIS_URL
+                  value: redis://:$(REDIS_PASSWORD)@zammad-external-redis-master:6379
+                - name: POSTGRESQL_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: zammad-external-postgresql-pass
+                      key: postgresql-pass
+                - name: DATABASE_URL
+                  value: >-
+                    postgres://zammad:$(POSTGRESQL_PASS)@zammad-external-postgresql:5432/zammad_production?pool=50
+                - name: TMP
+                  value: /opt/zammad/tmp
+                - name: RAILS_CHECK_PENDING_MIGRATIONS
+                  value: 'true'
+              resources: {}
+              volumeMounts:
+                - name: zammad-backup-storage
+                  mountPath: /var/tmp/zammad_backup
+                - name: zammad-storage
+                  mountPath: /opt/zammad/storage
+                - name: zammad-backup-config
+                  mountPath: /opt/zammad/contrib/backup/config
+                  subPath: config
+                - name: zammad-database-config
+                  mountPath: /opt/zammad/config/database.yml
+                  subPath: database.yml
+                - name: zammad-database-functions
+                  mountPath: /opt/zammad/contrib/backup/functions
+                  subPath: functions
+                - name: zammad-external-tmp
+                  mountPath: /tmp
+                - name: zammad-external-tmp
+                  mountPath: /opt/zammad/tmp
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              imagePullPolicy: Always
+          restartPolicy: OnFailure
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+          schedulerName: default-scheduler
