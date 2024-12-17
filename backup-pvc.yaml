@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zammad-backup-pvc
+  namespace: zammad
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: cephfs-ssd
+  resources:
+    requests:
+      storage: 500Gi
