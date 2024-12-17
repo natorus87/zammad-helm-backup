@@ -34,7 +34,7 @@ data:
       encoding: utf8
       adapter: postgresql
       username: zammad
-      password: zammad
+      password: password
       host: zammad-external-postgresql
       port: 5432
 
