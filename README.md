@@ -49,7 +49,9 @@ volumes:
 1. Deploy the CronJob in your Kubernetes cluster:
 
    ```bash
-   kubectl apply -f zammad-backup-cronjob.yaml
+   kubectl apply -f cronjob.yaml
+   kubectl apply -f configmap.yaml
+   kubectl apply -f backup-pvc.yaml
    ```
 
 2. Monitor CronJob executions:
